@@ -1,0 +1,179 @@
+pipeline
+{
+agent any
+tools {
+nodejs 'Node 18'
+jdk 'jdk 17'
+maven ''
+}
+
+environment {
+// Git repo URL
+Frontend_REPO='https://github.com/zigarn/mca-devops-test/frontend.git'
+Backend_REPO=''https://github.com/zigarn/mca-devops-test/backend.git'
+GIT_BRANCH='main'
+
+//Docker variables
+DOCKERHUB_USER=""
+FRONTEND_IMAGE_NAME = "${DOCKERHUB_USER}" + "/Frontend"
+BACKEND_IMAGE_NAME = "${DOCKERHUB_USER}" + "/Backend"
+IMAGE_TAG = "${env.BUILD_NUMBER}"
+PROJECT_NAME= 'frontend'
+
+//Artifacts
+SSH_CRED_ID = 'docker-server-ssh'
+REMOTE_USER = 'ubuntu'
+REMOTE_HOST = 'xxx.xxx.x.xx'
+REMOTE_DIR='/home/ubuntu/deployments'
+FRONTEND_ARTIFACT = 'target/*.jar'
+BACKEND_ARTIFACT = 'dist/${PROJECT_NAME}/**/*'
+}
+
+stages {
+stage('Cleanup workspace') {
+steps { cleanWS() }
+}
+
+stage('Checkout Frontend code From SCM') {
+steps {
+git branch: "${GIT_BRANCH}", credentialsID: "" , URL: "${Frontend_REPO}"
+} 
+}
+
+stage('Checkout Frontend code From SCM') {
+steps {
+git branch: "${GIT_BRANCH}", credentialsID: "" , URL: "${Backend_REPO}"
+} 
+}
+
+stage('Install dependencies')
+{
+steps {
+sh 'npm install' 
+}
+}
+
+stage('Build Frontend') {
+steps {
+sh 'ng build'
+} 
+}
+
+stage('Build Backend') {
+steps {
+sh "chmod +x mvnw"
+sh "./mvnw clean package"
+} 
+}
+
+stage('SonarQube Analysis') {
+      environment {
+        SONAR_URL = ""
+      }
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+          sh 'cd mca-devops-test/backend && ./mvnw sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+        }
+      }
+    }
+	
+stage('Test Frontend') { // optional depends on application
+steps {
+sh "ng test --watch=false --code-coverage"
+} 
+}
+
+stage('Test Backend') { // optional depends on application
+steps {
+sh "./mvnw test"
+} 
+}
+
+stage ('Publish Java/Maven Artifacts over SSH') {
+steps {
+sshagent  (credentials: [env.SSH_CRED_ID]) {
+sh """
+scp -o StrictHostKeyChecking=no ${FRONTEND_ARTIFACT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
+scp -o StrictHostKeyChecking=no ${BACKEND_ARTIFACT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
+"""
+}
+}
+}
+
+
+stage('Docker Build Frontend Image') {
+steps {
+dir ('frontend') {
+sh "docker build -t ${FRONTEND_IMAGE_NAME}:${IMAGE_TAG} ."
+}
+}
+}
+
+stage('Docker Build Backend Image') {
+steps {
+dir ('backend') {
+sh "docker build -t ${BACKEND_IMAGE_NAME}:${IMAGE_TAG} ."
+}
+}
+}
+
+stage('Docker Login') {
+steps {
+withCredentials([usernamePassword( credentialsID: 'docker-hub-creds', //Defined in Jenkins > Credentials
+usernameVariable: 'DOCKER_USER',
+passwordVariable: 'DOCKER_PASS'
+)]) {
+sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+}
+}
+}
+
+stage('Push build images to Docker Hub')
+{
+steps 
+{
+sh '''
+docker push ${FRONTEND_IMAGE_NAME}:${IMAGE_TAG}
+docker push ${BACKEND_IMAGE_NAME}:${IMAGE_TAG} 
+'''
+}
+}
+
+stage('Logout from Docker')
+{
+steps {
+sh 'docker logout'
+}
+}
+
+
+stage('Cleanup Artifacts') {
+steps {
+script { 
+echo 'Cleaning up Artifacts...'
+sh 'rm -rf target/*' // For Maven artifacts
+sh 'rm -rf dist/*' // For Angular artifacts
+}
+} 
+}
+
+}
+
+post {
+success {
+echo 'Build successful' 
+}
+failure {
+emailext (
+subject: "Jenkins build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+body: """ <p><b> Build Failed: </b> ${env.JOB_NAME} #${env.BUILD_NUMBER}</p>
+          <p><b>URL:</b> <a href="${env.BUILD_URL}" >${env.BUILD_URL}</a></p>
+		  <p>Check the Jenkins console output for more details</p> """,
+to: ''
+mimeType: 'text/html'
+)
+}
+}
+}
+
+

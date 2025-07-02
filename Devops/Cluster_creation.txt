@@ -1,0 +1,20 @@
+
+Create a K8s cluster
+--------------------
+1. Create a minikube cluster 
+minikube start --driver=docker
+minukube addons enable ingress //Installs Ingress controller
+kubectl get pods -n ingress-nginx //verifies whether ingress controller is running.
+
+2. Apply the deployment manifests on the minikube cluster.
+kubectl apply -f k8s/namespace.yml
+kubectl apply -n my-app -f k8s/postgres-deployment.yaml
+kubectl apply -n my-app -f k8s/backend-deployment.yaml
+kubectl apply -n my-app -f k8s/frontend-deployment.yaml
+kubectl apply -n my-app -f k8s/ingress.yaml
+kubectl apply -f db-secret.yaml
+
+3. To access the application via Ingress
+minikube ip
+Note: If public domain required, update /etc/hosts file with ip mapped to local domain name.
+192.xxx.xx.x my-app.local

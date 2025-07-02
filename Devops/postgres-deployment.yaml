@@ -1,0 +1,49 @@
+# k8s/postgres-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: POSTGRES_DB
+              value: mydb
+            - name: SPRING_POSTGRES_USERNAME
+              value: postgres
+            - name: SPRING_POSTGRES_PASSWORD
+              valueFrom: 
+                secretKeyRef:
+                  name: db-secret
+                  key: db-password
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pg-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pg-data
+          emptyDir: {} # use PersistentVolumeClaim in production
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: my-app
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
