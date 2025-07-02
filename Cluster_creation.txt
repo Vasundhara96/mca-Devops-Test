@@ -12,6 +12,7 @@ kubectl apply -n my-app -f k8s/postgres-deployment.yaml
 kubectl apply -n my-app -f k8s/backend-deployment.yaml
 kubectl apply -n my-app -f k8s/frontend-deployment.yaml
 kubectl apply -n my-app -f k8s/ingress.yaml
+kubectl apply -f db-secret.yaml
 
 3. To access the application via Ingress
 minikube ip

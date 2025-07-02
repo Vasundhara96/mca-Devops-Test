@@ -1,9 +1,12 @@
 
 Jenkins configurations:
-1. Add dockerHub credentials 
+1. Add dockerHub credentials and docker SSH credentials.
 Manage Jenkins > Credentials > Global
 Add dockerhub username and password
 With ID - docker-hub-creds.
+
+Manage Jenkins > Configure System > Publish over SSH
+Add SSH server with hostname, username, password/key, remote dir.
 
 2. Install SonarQube Plugin and configure by adding the credentials.
 
