@@ -1,0 +1,23 @@
+
+Jenkins configurations:
+1. Add dockerHub credentials 
+Manage Jenkins > Credentials > Global
+Add dockerhub username and password
+With ID - docker-hub-creds.
+
+2. Install SonarQube Plugin and configure by adding the credentials.
+
+Manage Jenkins > Configure system > Setup SQ server with the below.
+SONAR_URL, SONAR_AUTH_TOKEN (SonarQube > My account > Security - generate token)
+
+To add SonarQube token to Jenkins
+Manage Jenkins > Credentials > Global (Type - secret text, ID, secret)
+
+Add Sonar plugin to Maven pom.xml
+
+3. To create Jenkins pipeline
+Choose Pipeline script from SCM.
+Set SCM as git
+Repo URL: https://github.com/zigarn/mca-devops-test
+Branch: main
+Script path: Jenkinsfile
